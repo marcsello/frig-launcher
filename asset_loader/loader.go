@@ -4,10 +4,10 @@ import (
 	"log"
 	"os"
 	"path"
-	"sdl-playground/image"
-	"sdl-playground/sound"
-	"sdl-playground/utils"
 
+	"github.com/marcsello/frig-launcher/image"
+	"github.com/marcsello/frig-launcher/sound"
+	"github.com/marcsello/frig-launcher/utils"
 	"gitlab.com/MikeTTh/env"
 )
 

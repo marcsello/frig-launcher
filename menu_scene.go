@@ -3,10 +3,10 @@ package main
 import (
 	"math"
 	"math/rand"
-	"sdl-playground/image"
-	"sdl-playground/utils"
 
 	"github.com/Zyko0/go-sdl3/sdl"
+	"github.com/marcsello/frig-launcher/image"
+	"github.com/marcsello/frig-launcher/utils"
 )
 
 type MenuScene struct {

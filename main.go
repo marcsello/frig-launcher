@@ -4,15 +4,16 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"sdl-playground/asset_loader"
-	"sdl-playground/image"
-	"sdl-playground/sound"
+
 	"syscall"
 
 	"github.com/Zyko0/go-sdl3/bin/binimg"
 	"github.com/Zyko0/go-sdl3/bin/binsdl"
 	"github.com/Zyko0/go-sdl3/bin/binttf"
 	"github.com/Zyko0/go-sdl3/sdl"
+	"github.com/marcsello/frig-launcher/asset_loader"
+	"github.com/marcsello/frig-launcher/image"
+	"github.com/marcsello/frig-launcher/sound"
 )
 
 const (

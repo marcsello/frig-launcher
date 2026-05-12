@@ -15,9 +15,9 @@ The code is a huge mess, that's because this is my very first SDL3 project in Go
     - Logo: https://freesound.org/people/newlocknew/sounds/851333/
     - UI: https://freesound.org/people/newlocknew/sounds/842498/
 
-DISCLAIMER:  
+**DISCLAIMER:**  
 I have no intentions of making money out of this project.  
-I'm not claiming that the assets are my original work.
-I may have modified the assets to make them work in this project.
-I built this project for my own personal use,
+I'm not claiming that the assets are my original work.  
+I may have modified the assets to make them work in this project.  
+I built this project for my own personal use,  
 I'm sharing the source code for educational purposes.

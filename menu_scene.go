@@ -40,8 +40,8 @@ func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 			m.iconsAnimators[i] = &utils.TransitionAnimator{Rect: sdl.FRect{
 				X: float32(x),
 				Y: float32(y),
-				W: float32(inactiveIconSize),
-				H: float32(inactiveIconSize),
+				W: inactiveIconSize,
+				H: inactiveIconSize,
 			}}
 		}
 	}
@@ -199,6 +199,7 @@ func (m *MenuScene) Input(intent UserIntent) {
 		return
 	}
 
+	//goland:noinspection GoSwitchMissingCasesForIotaConsts
 	switch intent {
 	case IntentNext:
 		m.inputNext()

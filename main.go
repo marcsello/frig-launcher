@@ -77,7 +77,7 @@ func main() {
 
 	log.Printf("Desktop: %dx%d @%fHz", dm.W, dm.H, dm.RefreshRate)
 
-	window, renderer, err := sdl.CreateWindowAndRenderer("SDL Playground", int(dm.W), int(dm.H),
+	window, renderer, err := sdl.CreateWindowAndRenderer("FRIG Launcher", int(dm.W), int(dm.H),
 		sdl.WINDOW_FULLSCREEN|sdl.WINDOW_BORDERLESS|sdl.WINDOW_INPUT_FOCUS|sdl.WINDOW_ALWAYS_ON_TOP,
 	)
 	if err != nil {

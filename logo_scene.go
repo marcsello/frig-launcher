@@ -2,8 +2,8 @@ package main
 
 import (
 	"github.com/Zyko0/go-sdl3/sdl"
-	"github.com/marcsello/frig-launcher/asset_loader"
-	"github.com/marcsello/frig-launcher/image"
+	"github.com/marcsello/frig-launcher/asset_management/image"
+	"github.com/marcsello/frig-launcher/asset_management/loader"
 	"github.com/marcsello/frig-launcher/utils"
 )
 
@@ -54,7 +54,7 @@ func (s *LogoScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 	}
 
 	if durationMs > 250 && !s.assetsLoaded { // load assets after displaying the logo, but before unrolling the text
-		asset_loader.LoadAssetsNow(AssetStageSecondary)
+		loader.LoadAssetsNow(AssetStageSecondary)
 		s.assetsLoaded = true
 	}
 
@@ -116,7 +116,7 @@ func (s *LogoScene) Bind(fbc FeedbackController, sc SceneController) {
 
 func (s *LogoScene) UnBind() {
 	if !s.assetsLoaded {
-		asset_loader.LoadAssetsNow(AssetStageSecondary)
+		loader.LoadAssetsNow(AssetStageSecondary)
 		s.assetsLoaded = true
 	}
 

@@ -44,6 +44,7 @@ func (s *SceneControllerImpl) Run(renderer *sdl.Renderer, feedbackController Fee
 		// In case this is the very first loop (or we lost the current scene somehow)
 		if s.currentScene == nil && s.nextScene != nil {
 			// Do the initial scene loading
+			log.Println("Switching to the first scene...")
 			s.currentScene = s.nextScene
 			s.nextScene = nil
 			s.currentScene.Bind(feedbackController, s)
@@ -56,6 +57,10 @@ func (s *SceneControllerImpl) Run(renderer *sdl.Renderer, feedbackController Fee
 				currentSceneStart = loopStarted
 			}
 			keepDrawing, err = s.currentScene.Draw(renderer, scrW, scrH, firstFrame, delta, loopStarted-currentSceneStart)
+			if err != nil {
+				log.Println("ERROR: drawing scene:", err)
+				return err
+			}
 			firstFrame = false
 		} else {
 			err = renderer.SetDrawColor(255, 0, 0, 255)
@@ -76,6 +81,7 @@ func (s *SceneControllerImpl) Run(renderer *sdl.Renderer, feedbackController Fee
 
 		if !keepDrawing && s.nextScene != nil {
 			// do scene switch
+			log.Println("Switching scene...")
 			s.currentScene.UnBind()
 			s.currentScene = s.nextScene
 			s.nextScene = nil
@@ -118,6 +124,7 @@ func (s *SceneControllerImpl) handleInput(blocking bool) {
 
 	// If we are doing a blocking wait, then wait for the *first* event indefinitely
 	if blocking {
+		log.Println("Idle, waiting for event...")
 		err := sdl.WaitEvent(&event)
 		if err != nil {
 			log.Println("Error while waiting for event:", err)

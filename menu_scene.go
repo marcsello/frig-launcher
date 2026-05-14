@@ -5,7 +5,8 @@ import (
 	"math/rand"
 
 	"github.com/Zyko0/go-sdl3/sdl"
-	"github.com/marcsello/frig-launcher/image"
+	"github.com/marcsello/frig-launcher/asset_management/fonts"
+	"github.com/marcsello/frig-launcher/asset_management/image"
 	"github.com/marcsello/frig-launcher/utils"
 )
 
@@ -164,12 +165,22 @@ func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 		}
 	}
 
-	err = renderer.SetDrawColor(255, 255, 255, textValue)
+	text, err := fonts.GetText(FontTitle, m.options[m.selection])
 	if err != nil {
 		return false, err
 	}
 
-	err = renderer.DebugText(float32(scrW/2), float32(scrH-150), m.options[m.selection])
+	err = text.SetColor(255, 255, 255, textValue)
+	if err != nil {
+		return false, err
+	}
+
+	textW, _, err := text.Size()
+	if err != nil {
+		return false, err
+	}
+
+	err = text.DrawRenderer(float32(scrW/2)-float32(textW/2), float32(scrH-150))
 	if err != nil {
 		return false, err
 	}

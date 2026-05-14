@@ -1,0 +1,122 @@
+package loader
+
+import (
+	"fmt"
+	"log"
+
+	"github.com/marcsello/frig-launcher/asset_management/fonts"
+	"github.com/marcsello/frig-launcher/asset_management/image"
+	"github.com/marcsello/frig-launcher/asset_management/sound"
+)
+
+type AssetType int
+
+const (
+	SoundAsset AssetType = iota
+	ImageAsset
+	FontAsset
+)
+
+func (t AssetType) String() string {
+	switch t {
+	case SoundAsset:
+		return "sound"
+	case ImageAsset:
+		return "image"
+	case FontAsset:
+		return "font"
+	default:
+		return ""
+	}
+}
+
+type Asset struct {
+	Type        AssetType
+	Stage       int // user defined stage
+	ID          int // user defined id used for accessing the resource by the asset subsystems
+	AbsFilePath string
+
+	FontSize float32 // specific to font only
+
+	Loaded bool
+}
+
+type ExtraConfig func(*Asset)
+
+func FontSize(ptSize float32) ExtraConfig {
+	return func(asset *Asset) {
+		asset.FontSize = ptSize
+	}
+}
+
+var (
+	assets []Asset
+)
+
+// RegisterAsset takes a relative path, it will attempt to resolve the path for the asset
+func RegisterAsset(t AssetType, stage, id int, relPath string, extraConfig ...ExtraConfig) error {
+	absPath := resolvePath(t, relPath)
+	if absPath == "" {
+		log.Printf("Could not locate %s asset: %s Attempting to load it will fail!", t.String(), relPath)
+		return fmt.Errorf("could not locate %s asset", t.String())
+	}
+	log.Printf("Located %s asset: %s", t.String(), absPath)
+
+	record := Asset{
+		Type:        t,
+		Stage:       stage,
+		ID:          id,
+		AbsFilePath: absPath,
+		Loaded:      false,
+	}
+
+	for _, fn := range extraConfig {
+		fn(&record)
+	}
+
+	assets = append(assets, record)
+	return nil
+}
+
+func MustRegisterAsset(t AssetType, stage, id int, relPath string, extraConfig ...ExtraConfig) {
+	err := RegisterAsset(t, stage, id, relPath, extraConfig...)
+	if err != nil {
+		log.Printf("FATAL: Failed to register %s asset! %v", t.String(), err)
+		panic(err)
+	}
+}
+
+func loadAsset(asset Asset) error {
+	switch asset.Type {
+	case SoundAsset:
+		return sound.LoadSnd(asset.ID, asset.AbsFilePath)
+	case ImageAsset:
+		return image.LoadImageResource(asset.ID, asset.AbsFilePath)
+	case FontAsset:
+		return fonts.LoadFont(asset.ID, asset.AbsFilePath, asset.FontSize)
+	default:
+		return nil
+	}
+}
+
+// LoadAssetsNow loads all assets required by `stage`
+func LoadAssetsNow(stage int) {
+	for _, asset := range assets {
+		if asset.Stage != stage {
+			continue
+		}
+		if asset.Loaded {
+			log.Printf("Attempted to load %s asset twice: %s", asset.Type.String(), asset.AbsFilePath)
+			continue
+		}
+
+		err := loadAsset(asset)
+		if err != nil {
+			log.Printf("Failed to load %s %s: %v", asset.Type.String(), asset.AbsFilePath, err)
+			continue
+		}
+
+		log.Printf("%s asset loaded: %s to %d", asset.Type.String(), asset.AbsFilePath, asset.ID)
+		asset.Loaded = true
+	}
+}

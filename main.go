@@ -11,9 +11,11 @@ import (
 	"github.com/Zyko0/go-sdl3/bin/binsdl"
 	"github.com/Zyko0/go-sdl3/bin/binttf"
 	"github.com/Zyko0/go-sdl3/sdl"
-	"github.com/marcsello/frig-launcher/asset_loader"
-	"github.com/marcsello/frig-launcher/image"
-	"github.com/marcsello/frig-launcher/sound"
+	"github.com/Zyko0/go-sdl3/ttf"
+	"github.com/marcsello/frig-launcher/asset_management/fonts"
+	"github.com/marcsello/frig-launcher/asset_management/image"
+	"github.com/marcsello/frig-launcher/asset_management/loader"
+	"github.com/marcsello/frig-launcher/asset_management/sound"
 )
 
 const (
@@ -28,6 +30,8 @@ const (
 
 	IMGTRex
 	IMGFrig
+
+	FontTitle
 )
 
 type FeedbackControllerWrapper struct{}
@@ -51,6 +55,10 @@ func main() {
 	defer sdl.Quit()
 
 	if err := sdl.Init(sdl.INIT_VIDEO | sdl.INIT_AUDIO | sdl.INIT_GAMEPAD); err != nil {
+		panic(err)
+	}
+
+	if err := ttf.Init(); err != nil {
 		panic(err)
 	}
 
@@ -114,17 +122,23 @@ func main() {
 	image.Init(renderer)
 	defer image.Close()
 
+	err = fonts.Init(renderer)
+	if err != nil {
+		log.Println("WARNING: Fonts init failed:", err)
+	}
+	defer fonts.Close()
+
 	// Assets needed at the very beginning
-	asset_loader.RegisterSoundAsset(AssetStagePrimary, SNDLogo, "snd/logo.wav")
-	asset_loader.RegisterImageAsset(AssetStagePrimary, IMGTRex, "img/trex.png")
+	loader.MustRegisterAsset(loader.SoundAsset, AssetStagePrimary, SNDLogo, "snd/logo.wav")
+	loader.MustRegisterAsset(loader.ImageAsset, AssetStagePrimary, IMGTRex, "img/trex.png")
 
 	// will be loaded while displaying the logo
-	asset_loader.RegisterSoundAsset(AssetStageSecondary, SNDNavigate, "snd/navigate.wav")
-	asset_loader.RegisterSoundAsset(AssetStageSecondary, SNDSelect, "snd/select.wav")
-	asset_loader.RegisterImageAsset(AssetStageSecondary, IMGFrig, "img/frig.png")
-	//asset_loader.RegisterImageAsset(AssetStageSecondary, IMGSteam, "img/steam.png")
+	loader.MustRegisterAsset(loader.SoundAsset, AssetStageSecondary, SNDNavigate, "snd/navigate.wav")
+	loader.MustRegisterAsset(loader.SoundAsset, AssetStageSecondary, SNDSelect, "snd/select.wav")
+	loader.MustRegisterAsset(loader.ImageAsset, AssetStageSecondary, IMGFrig, "img/frig.png")
+	loader.MustRegisterAsset(loader.FontAsset, AssetStageSecondary, FontTitle, "LiberationSans-Regular.ttf", loader.FontSize(32))
 
-	asset_loader.LoadAssetsNow(AssetStagePrimary)
+	loader.LoadAssetsNow(AssetStagePrimary)
 
 	// play logo immediately
 	err = sound.PlaySnd(SNDLogo)

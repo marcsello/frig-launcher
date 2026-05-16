@@ -21,7 +21,7 @@ type Root struct {
 var Config Root
 
 func LoadConfig() error {
-	configPath := env.String("FRIG_CONFIG_PATH", "/etc/frig/config.yaml")
+	configPath := env.String("FRIG_CONFIG", "/etc/frig/config.yaml")
 
 	f, err := os.OpenFile(configPath, os.O_RDONLY, 0)
 	if err != nil {

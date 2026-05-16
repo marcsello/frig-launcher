@@ -1,12 +1,14 @@
 package main
 
 import (
+	"log"
 	"math"
 	"math/rand"
 
 	"github.com/Zyko0/go-sdl3/sdl"
 	"github.com/marcsello/frig-launcher/asset_management/fonts"
 	"github.com/marcsello/frig-launcher/asset_management/image"
+	"github.com/marcsello/frig-launcher/config"
 	"github.com/marcsello/frig-launcher/utils"
 )
 
@@ -16,9 +18,9 @@ type MenuScene struct {
 
 	selection     int
 	lastSelection int
-	options       []string
 
 	choiceMade   bool
+	launched     bool
 	choiceMadeAt uint64
 
 	iconsAnimators []*utils.TransitionAnimator
@@ -26,6 +28,8 @@ type MenuScene struct {
 
 func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool, dtNS, durationNS uint64) (bool, error) {
 	var err error
+
+	var anythingMoved bool
 
 	inactiveIconSize := float32(scrW / 6)
 	activeIconSize := float32(scrH / 2)
@@ -45,6 +49,7 @@ func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 				H: inactiveIconSize,
 			}}
 		}
+		anythingMoved = true // First frame must be drawn
 	}
 
 	if m.choiceMade && m.choiceMadeAt == 0 {
@@ -70,10 +75,25 @@ func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 		} else {
 			selectedValue = 0
 		}
+
+		if since > 550_000_000 && !m.launched {
+			log.Println("launch")
+			Launch(config.Config.Applications[m.selection].Exec)
+			m.launched = true
+		}
+
+		if since < 1_000_000_000 { // keep the empty screen for 1 sec, to allow the sound effect to play properly
+			anythingMoved = true
+		} else {
+			// finally exit
+			return false, sdl.EndLoop
+		}
+
 	} else if durationNS < 1_000_000_000 {
 		unselectedValue = 255
 		selectedValue = 255
 		textValue = uint8(255 * (float64(durationNS) / 1_000_000_000)) // 1 sec fade-in
+		anythingMoved = true
 	} else {
 		unselectedValue = 255
 		selectedValue = 255
@@ -122,13 +142,16 @@ func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 			m.iconsAnimators[i].SetDesired(rect)
 		}
 		m.lastSelection = m.selection
+		anythingMoved = true // selection changed, something must have moved
 	}
 
 	for i := range m.iconsAnimators {
-		m.iconsAnimators[i].Update(dtNS)
+		if m.iconsAnimators[i].Update(dtNS) {
+			anythingMoved = true
+		}
 	}
 
-	steam, _ := image.GetTexture(IMGTRex)
+	// This was all the calculations basically, so now we just draw everything
 
 	err = renderer.SetDrawColor(0, 0, 0, 255)
 	if err != nil {
@@ -140,7 +163,7 @@ func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 		return false, err
 	}
 
-	for i := range m.options {
+	for i := range config.Config.Applications {
 		var v uint8
 		if i == m.selection {
 			v = selectedValue
@@ -148,7 +171,9 @@ func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 			v = unselectedValue
 		}
 
-		err = steam.SetAlphaMod(v)
+		var icon *sdl.Texture
+		icon, _ = image.GetTexture(IMGIcon + i)
+		err = icon.SetAlphaMod(v)
 		if err != nil {
 			return false, err
 		}
@@ -159,43 +184,70 @@ func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 			continue
 		}
 
-		err = renderer.RenderTexture(steam, nil, &anim.Rect)
+		err = renderer.RenderTexture(icon, nil, &anim.Rect)
 		if err != nil {
 			return false, err
 		}
 	}
 
-	text, err := fonts.GetText(FontTitle, m.options[m.selection])
+	textTitle, err := fonts.GetText(FontTitle, config.Config.Applications[m.selection].Name)
 	if err != nil {
 		return false, err
 	}
 
-	err = text.SetColor(255, 255, 255, textValue)
+	textClock, err := fonts.GetText(FontClock, "12:23")
 	if err != nil {
 		return false, err
 	}
 
-	textW, _, err := text.Size()
+	err = textTitle.SetColor(255, 255, 255, textValue)
 	if err != nil {
 		return false, err
 	}
 
-	err = text.DrawRenderer(float32(scrW/2)-float32(textW/2), float32(scrH-150))
+	err = textClock.SetColor(255, 255, 255, textValue)
 	if err != nil {
 		return false, err
 	}
 
-	return true, nil
+	textTitleW, _, err := textTitle.Size()
+	if err != nil {
+		return false, err
+	}
+
+	err = textTitle.DrawRenderer(float32(scrW/2)-float32(textTitleW/2), float32(scrH-150))
+	if err != nil {
+		return false, err
+	}
+
+	textClockW, _, err := textClock.Size()
+	if err != nil {
+		return false, err
+	}
+
+	err = textClock.DrawRenderer(float32(scrW-32-int(textClockW)), 32)
+	if err != nil {
+		return false, err
+	}
+
+	return anythingMoved, nil
+}
+
+func (m *MenuScene) MaxInhibitMS() int32 {
+	return 15_000 // unfreeze every 15 sec, to keep the clock ticking
 }
 
 func (m *MenuScene) Bind(fbc FeedbackController, sc SceneController) {
 	m.fbc = fbc
 	m.sc = sc
 
-	m.options = []string{"alma", "barack", "körte", "szilva", "csereszyne"}
-	m.iconsAnimators = make([]*utils.TransitionAnimator, len(m.options)) // this will be all nil at first
+	m.iconsAnimators = make([]*utils.TransitionAnimator, len(config.Config.Applications)) // this will be all nil at first
 
-	m.selection = len(m.options) / 2
+	// try to select the icon at the middle
+	m.selection = len(config.Config.Applications)/2 - 1
+	if m.selection < 0 {
+		m.selection = 0
+	}
 	m.lastSelection = -1
 }
 
@@ -222,7 +274,7 @@ func (m *MenuScene) Input(intent UserIntent) {
 }
 
 func (m *MenuScene) inputNext() {
-	if m.selection == len(m.options)-1 {
+	if m.selection == len(config.Config.Applications)-1 {
 		return
 	}
 

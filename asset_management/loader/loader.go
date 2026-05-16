@@ -3,32 +3,13 @@ package loader
 import (
 	"fmt"
 	"log"
+	"path"
 
 	"github.com/marcsello/frig-launcher/asset_management/fonts"
 	"github.com/marcsello/frig-launcher/asset_management/image"
 	"github.com/marcsello/frig-launcher/asset_management/sound"
+	"github.com/marcsello/frig-launcher/utils"
 )
-
-type AssetType int
-
-const (
-	SoundAsset AssetType = iota
-	ImageAsset
-	FontAsset
-)
-
-func (t AssetType) String() string {
-	switch t {
-	case SoundAsset:
-		return "sound"
-	case ImageAsset:
-		return "image"
-	case FontAsset:
-		return "font"
-	default:
-		return ""
-	}
-}
 
 type Asset struct {
 	Type        AssetType
@@ -54,10 +35,18 @@ var (
 )
 
 // RegisterAsset takes a relative path, it will attempt to resolve the path for the asset
-func RegisterAsset(t AssetType, stage, id int, relPath string, extraConfig ...ExtraConfig) error {
-	absPath := resolvePath(t, relPath)
+func RegisterAsset(t AssetType, stage, id int, assetPath string, extraConfig ...ExtraConfig) error {
+	var absPath string
+	if path.IsAbs(assetPath) {
+		if utils.IsFile(assetPath) {
+			absPath = assetPath
+		}
+	} else {
+		absPath = resolvePath(t, assetPath)
+	}
+
 	if absPath == "" {
-		log.Printf("Could not locate %s asset: %s Attempting to load it will fail!", t.String(), relPath)
+		log.Printf("Could not locate %s asset: %s Attempting to load it will fail!", t.String(), assetPath)
 		return fmt.Errorf("could not locate %s asset", t.String())
 	}
 	log.Printf("Located %s asset: %s", t.String(), absPath)

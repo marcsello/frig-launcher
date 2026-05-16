@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"log"
 
 	"github.com/Zyko0/go-sdl3/sdl"
@@ -10,9 +11,15 @@ type SceneControllerImpl struct {
 	currentScene Scene
 	nextScene    Scene
 
+	DesiredFPS uint64
+
 	exitRequested bool
 
 	gamepads []*sdl.Gamepad
+}
+
+func (s *SceneControllerImpl) desiredDeltaNS() uint64 {
+	return 1_000_000_000 / s.DesiredFPS //desired time b/w frames
 }
 
 func (s *SceneControllerImpl) Run(renderer *sdl.Renderer, feedbackController FeedbackController, scrW, scrH int) error {
@@ -24,11 +31,7 @@ func (s *SceneControllerImpl) Run(renderer *sdl.Renderer, feedbackController Fee
 	}()
 
 	// Main loop
-
-	desiredFPS := uint64(30)
-	desiredDeltaNS := 1_000_000_000 / desiredFPS //desired time b/w frames
-
-	delta := desiredDeltaNS
+	delta := s.desiredDeltaNS()
 
 	firstFrame := true
 	var currentSceneStart uint64
@@ -58,7 +61,11 @@ func (s *SceneControllerImpl) Run(renderer *sdl.Renderer, feedbackController Fee
 			}
 			keepDrawing, err = s.currentScene.Draw(renderer, scrW, scrH, firstFrame, delta, loopStarted-currentSceneStart)
 			if err != nil {
-				log.Println("ERROR: drawing scene:", err)
+				if errors.Is(err, sdl.EndLoop) {
+					log.Println("Termination request from the scene")
+				} else {
+					log.Println("ERROR: drawing scene:", err)
+				}
 				return err
 			}
 			firstFrame = false
@@ -95,6 +102,7 @@ func (s *SceneControllerImpl) Run(renderer *sdl.Renderer, feedbackController Fee
 
 		// calculate if maybe we need to pad the frame time
 		delta = sdl.TicksNS() - loopStarted
+		desiredDeltaNS := s.desiredDeltaNS()
 		if delta < desiredDeltaNS {
 			sdl.DelayNS(desiredDeltaNS - delta)
 		}
@@ -120,15 +128,30 @@ func (s *SceneControllerImpl) proxyInput(intent UserIntent) {
 }
 
 func (s *SceneControllerImpl) handleInput(blocking bool) {
+	// This is a spaghetti lol
 	var event sdl.Event
+
+	maxInhibitMS := s.currentScene.MaxInhibitMS()
+
+	if maxInhibitMS == 0 {
+		// disallow blocking if max inhibit is 0
+		blocking = false
+	}
 
 	// If we are doing a blocking wait, then wait for the *first* event indefinitely
 	if blocking {
-		log.Println("Idle, waiting for event...")
-		err := sdl.WaitEvent(&event)
-		if err != nil {
-			log.Println("Error while waiting for event:", err)
-			return
+		if maxInhibitMS < 0 {
+			var err error
+			err = sdl.WaitEvent(&event)
+			if err != nil {
+				log.Println("Error while waiting for event:", err)
+				return
+			}
+		} else {
+			gotEvent := sdl.WaitEventTimeout(&event, maxInhibitMS)
+			if !gotEvent {
+				return
+			}
 		}
 	}
 

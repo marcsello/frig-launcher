@@ -107,6 +107,10 @@ func (s *LogoScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 	return !s.finished, nil
 }
 
+func (s *LogoScene) MaxInhibitMS() int32 {
+	return 0 // don't allow inhibition
+}
+
 func (s *LogoScene) Bind(fbc FeedbackController, sc SceneController) {
 	s.fbc = fbc
 	s.sc = sc

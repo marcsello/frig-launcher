@@ -32,6 +32,9 @@ type Scene interface {
 	// firstFrame is true when drawing the very first frame
 	// dtNS is the delta in nanoseconds, i.e.: the time it took to render the last frame, sometimes it is faked
 	// durationNS is the time since this scene is being shown
+	// Return:
+	// - keepDrawing bool: if this was the last frame before inhibition is needed, rendering intended to be inhibited until the next event if set to false
+	// - error
 	Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool, dtNS, durationNS uint64) (bool, error)
 
 	// Bind is called when the Scene is "loaded"
@@ -42,4 +45,11 @@ type Scene interface {
 
 	// Input handles the user input translated from the different input devices
 	Input(intent UserIntent)
+
+	// MaxInhibitMS is the maximum time this scene allows inhibition,
+	// accessed just before inhibition,
+	// positive: maximum inhibition time
+	// zero = no inhibition allowed, even if the Draw fuction returns false
+	// negative: inhibit forever
+	MaxInhibitMS() int32
 }

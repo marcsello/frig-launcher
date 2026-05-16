@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"os"
 	"os/signal"
@@ -16,6 +17,9 @@ import (
 	"github.com/marcsello/frig-launcher/asset_management/image"
 	"github.com/marcsello/frig-launcher/asset_management/loader"
 	"github.com/marcsello/frig-launcher/asset_management/sound"
+	"github.com/marcsello/frig-launcher/config"
+	"github.com/marcsello/frig-launcher/utils"
+	"gitlab.com/MikeTTh/env"
 )
 
 const (
@@ -27,11 +31,18 @@ const (
 	SNDLogo = iota
 	SNDNavigate
 	SNDSelect
+)
 
-	IMGTRex
+const (
+	IMGTRex = iota
 	IMGFrig
 
-	FontTitle
+	IMGIcon // this is basically a marker
+)
+
+const (
+	FontTitle = iota
+	FontClock
 )
 
 type FeedbackControllerWrapper struct{}
@@ -48,23 +59,47 @@ func (f *FeedbackControllerWrapper) OnError() {
 
 }
 
+type MuteFeedbackController struct{}
+
+func (m MuteFeedbackController) OnNavigate() {}
+
+func (m MuteFeedbackController) OnSelect() {}
+
+func (m MuteFeedbackController) OnError() {}
+
 func main() {
+	var argShowSplash bool
+	var argAudio bool
+	var argWindow string
+	var desiredFPS uint64
+	flag.BoolVar(&argShowSplash, "splash", true, "Show splash screen")
+	flag.BoolVar(&argAudio, "audio", true, "Enable audio")
+	flag.Uint64Var(&desiredFPS, "desiredFPS", 30, "Limit FPS to desired value")
+	flag.StringVar(&argWindow, "window", "", "Use windowed mode with the specified resolution. Example -window=1024x768 otherwise will be fullscreen")
+	flag.Parse()
+
 	defer binsdl.Load().Unload()
 	defer binimg.Load().Unload()
 	defer binttf.Load().Unload()
 	defer sdl.Quit()
 
-	if err := sdl.Init(sdl.INIT_VIDEO | sdl.INIT_AUDIO | sdl.INIT_GAMEPAD); err != nil {
-		panic(err)
-	}
+	var err error
 
-	if err := ttf.Init(); err != nil {
-		panic(err)
-	}
-
-	err := sdl.DisableScreenSaver()
+	err = sdl.Init(sdl.INIT_VIDEO | sdl.INIT_AUDIO | sdl.INIT_GAMEPAD)
 	if err != nil {
-		log.Println("WARNING: Failed to inhibit screensaver: ", err)
+		panic(err)
+	}
+
+	err = ttf.Init()
+	if err != nil {
+		panic(err)
+	}
+
+	if !env.Bool("FRIG_NO_SCREENSAVER_INHIBIT", false) {
+		err = sdl.DisableScreenSaver()
+		if err != nil {
+			log.Println("WARNING: Failed to inhibit screensaver: ", err)
+		}
 	}
 
 	displayID := sdl.GetPrimaryDisplay()
@@ -85,8 +120,22 @@ func main() {
 
 	log.Printf("Desktop: %dx%d @%fHz", dm.W, dm.H, dm.RefreshRate)
 
-	window, renderer, err := sdl.CreateWindowAndRenderer("FRIG Launcher", int(dm.W), int(dm.H),
-		sdl.WINDOW_FULLSCREEN|sdl.WINDOW_BORDERLESS|sdl.WINDOW_INPUT_FOCUS|sdl.WINDOW_ALWAYS_ON_TOP,
+	var windowFlags sdl.WindowFlags
+	var windowW, windowH int32
+
+	if argWindow == "" {
+		windowFlags = sdl.WINDOW_FULLSCREEN | sdl.WINDOW_BORDERLESS | sdl.WINDOW_INPUT_FOCUS | sdl.WINDOW_ALWAYS_ON_TOP
+		windowW = dm.W
+		windowH = dm.H
+	} else {
+		windowW, windowH, err = utils.ParseResolution(argWindow)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	window, renderer, err := sdl.CreateWindowAndRenderer("FRIG Launcher", int(windowW), int(windowH),
+		windowFlags,
 	)
 	if err != nil {
 		panic(err)
@@ -99,7 +148,7 @@ func main() {
 		log.Println("WARNING: Failed to hide cursor:", err)
 	}
 
-	var windowW, windowH int32
+	// re-read the value to "verify" it
 	windowW, windowH, err = window.Size()
 	if err != nil {
 		panic(err)
@@ -110,14 +159,16 @@ func main() {
 	if sdl.HasGamepad() {
 		log.Println("Gamepads detected")
 	} else {
-		log.Println("WARNING: No gamepads detected")
+		log.Println("WARNING: No gamepads detected!")
 	}
 
-	err = sound.Init()
-	if err != nil {
-		log.Println("WARNING: Audio init failed:", err)
+	if argAudio {
+		err = sound.Init()
+		if err != nil {
+			log.Println("WARNING: Audio init failed:", err)
+		}
+		defer sound.Close()
 	}
-	defer sound.Close()
 
 	image.Init(renderer)
 	defer image.Close()
@@ -128,28 +179,59 @@ func main() {
 	}
 	defer fonts.Close()
 
+	err = config.LoadConfig()
+	if err != nil {
+		log.Println("Failed to load config")
+		panic(err)
+	}
+	if len(config.Config.Applications) == 0 {
+		log.Println("WARNING: No applications defined!!!")
+	}
+
 	// Assets needed at the very beginning
-	loader.MustRegisterAsset(loader.SoundAsset, AssetStagePrimary, SNDLogo, "snd/logo.wav")
+	if argAudio {
+		loader.MustRegisterAsset(loader.SoundAsset, AssetStagePrimary, SNDLogo, "snd/logo.wav")
+	}
 	loader.MustRegisterAsset(loader.ImageAsset, AssetStagePrimary, IMGTRex, "img/trex.png")
 
 	// will be loaded while displaying the logo
-	loader.MustRegisterAsset(loader.SoundAsset, AssetStageSecondary, SNDNavigate, "snd/navigate.wav")
-	loader.MustRegisterAsset(loader.SoundAsset, AssetStageSecondary, SNDSelect, "snd/select.wav")
+	if argAudio {
+		loader.MustRegisterAsset(loader.SoundAsset, AssetStageSecondary, SNDNavigate, "snd/navigate.wav")
+		loader.MustRegisterAsset(loader.SoundAsset, AssetStageSecondary, SNDSelect, "snd/select.wav")
+	}
 	loader.MustRegisterAsset(loader.ImageAsset, AssetStageSecondary, IMGFrig, "img/frig.png")
-	loader.MustRegisterAsset(loader.FontAsset, AssetStageSecondary, FontTitle, "LiberationSans-Regular.ttf", loader.FontSize(32))
+
+	for i, app := range config.Config.Applications {
+		loader.MustRegisterAsset(loader.ImageAsset, AssetStageSecondary, IMGIcon+i, app.Icon)
+	}
+
+	loader.MustRegisterAsset(loader.FontAsset, AssetStageSecondary, FontTitle, "NotoSans-Bold.ttf", loader.FontSize(48))
+	loader.MustRegisterAsset(loader.FontAsset, AssetStageSecondary, FontClock, "NotoSans-Bold.ttf", loader.FontSize(32))
 
 	loader.LoadAssetsNow(AssetStagePrimary)
 
-	// play logo immediately
-	err = sound.PlaySnd(SNDLogo)
-	if err != nil {
-		log.Println("Failed to play audio: ", err)
+	if argAudio && argShowSplash {
+		// play logo immediately
+		err = sound.PlaySnd(SNDLogo)
+		if err != nil {
+			log.Println("Failed to play audio: ", err)
+		}
 	}
 
-	f := &FeedbackControllerWrapper{}
+	var f FeedbackController
+	if argAudio {
+		f = &FeedbackControllerWrapper{}
+	} else {
+		f = &MuteFeedbackController{}
+	}
 
-	sc := &SceneControllerImpl{}
-	sc.RegisterNextScene(&LogoScene{})
+	sc := &SceneControllerImpl{DesiredFPS: desiredFPS}
+	if argShowSplash {
+		sc.RegisterNextScene(&LogoScene{})
+	} else {
+		loader.LoadAssetsNow(AssetStageSecondary)
+		sc.RegisterNextScene(&MenuScene{})
+	}
 
 	signalCh := make(chan os.Signal)
 	go func() {
@@ -165,5 +247,5 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	log.Println("exit")
+	log.Println("clean exit")
 }

@@ -63,6 +63,8 @@ func (s *SceneControllerImpl) Run(renderer *sdl.Renderer, feedbackController Fee
 			if err != nil {
 				if errors.Is(err, sdl.EndLoop) {
 					log.Println("Termination request from the scene")
+					s.currentScene.UnBind()
+					s.currentScene = nil
 				} else {
 					log.Println("ERROR: drawing scene:", err)
 				}
@@ -221,17 +223,17 @@ func (s *SceneControllerImpl) handleInput(blocking bool) {
 		if event.Type == sdl.EVENT_GAMEPAD_REMOVED {
 			log.Println("gamepad removed")
 		}
+
+		if event.Type == EVENT_MINUTE_PASSED {
+			// Oh yes, my greatest hack to make the clock tick
+			if s.currentScene != nil {
+				s.currentScene.WallClockMinutePassed()
+			}
+		}
+
 	}
 }
 
 func (s *SceneControllerImpl) RegisterNextScene(scene Scene) {
 	s.nextScene = scene
-}
-
-func (s *SceneControllerImpl) RequestExit() {
-	ev := sdl.Event{Type: sdl.EVENT_QUIT}
-	err := sdl.PushEvent(&ev) // the docs state: It is safe to call this function from any thread.
-	if err != nil {
-		log.Println("failed to push quit event")
-	}
 }

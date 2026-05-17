@@ -112,7 +112,7 @@ func PlaySnd(id int) error {
 	}
 	if stream == nil {
 		var err error
-		stream, err = sdl.CreateAudioStream(nil, nil)
+		stream, err = sdl.CreateAudioStream(nil, nil) // TODO: currently this can grow indefinitely!!!! (maybe not an issue in such a short lived application for now)
 		if err != nil {
 			log.Println("failed to create audio stream:", err)
 			return err
@@ -125,7 +125,7 @@ func PlaySnd(id int) error {
 		}
 
 		streams = append(streams, stream)
-		log.Println("New stream created! total streams: ", len(streams))
+		log.Println("New audio stream created! total streams:", len(streams))
 	}
 
 	err := stream.PutData(data)

@@ -46,6 +46,9 @@ type Scene interface {
 	// Input handles the user input translated from the different input devices
 	Input(intent UserIntent)
 
+	// WallClockMinutePassed is called every minute passed by the clock on the wall... yeah
+	WallClockMinutePassed()
+
 	// MaxInhibitMS is the maximum time this scene allows inhibition,
 	// accessed just before inhibition,
 	// positive: maximum inhibition time

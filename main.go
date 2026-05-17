@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 	"os/signal"
-
 	"syscall"
+	"time"
 
 	"github.com/Zyko0/go-sdl3/bin/binimg"
 	"github.com/Zyko0/go-sdl3/bin/binsdl"
@@ -44,6 +44,8 @@ const (
 	FontTitle = iota
 	FontClock
 )
+
+const EVENT_MINUTE_PASSED = sdl.EVENT_USER // it is not registered, but it does not seem necessary: https://github.com/libsdl-org/SDL/blob/a34b35a382bffcd430465e273264021fb0f2fab1/src/events/SDL_events.c#L1963-L1974
 
 type FeedbackControllerWrapper struct{}
 
@@ -143,6 +145,18 @@ func main() {
 	defer renderer.Destroy()
 	defer window.Destroy()
 
+	// Disable some unneeded events
+	sdl.SetEventEnabled(sdl.EVENT_TEXT_INPUT, false)
+	sdl.SetEventEnabled(sdl.EVENT_SENSOR_UPDATE, false)
+	sdl.SetEventEnabled(sdl.EVENT_MOUSE_MOTION, false)
+	sdl.SetEventEnabled(sdl.EVENT_WINDOW_MOUSE_ENTER, false)
+	sdl.SetEventEnabled(sdl.EVENT_WINDOW_MOUSE_LEAVE, false)
+	sdl.SetEventEnabled(sdl.EVENT_MOUSE_BUTTON_UP, false)
+	sdl.SetEventEnabled(sdl.EVENT_MOUSE_BUTTON_DOWN, false)
+	sdl.SetEventEnabled(sdl.EVENT_MOUSE_WHEEL, false)
+	sdl.SetEventEnabled(sdl.EVENT_WINDOW_MOVED, false)
+	sdl.SetEventEnabled(sdl.EVENT_CLIPBOARD_UPDATE, false)
+
 	err = sdl.HideCursor()
 	if err != nil {
 		log.Println("WARNING: Failed to hide cursor:", err)
@@ -178,6 +192,35 @@ func main() {
 		log.Println("WARNING: Fonts init failed:", err)
 	}
 	defer fonts.Close()
+
+	// Setup interrupt handler
+	signalCh := make(chan os.Signal)
+	go func() {
+		sig := <-signalCh
+		log.Println("Signal received:", sig)
+		err := sdl.PushEvent(&sdl.Event{Type: sdl.EVENT_QUIT}) // the docs state: It is safe to call this function from any thread.
+		if err != nil {
+			log.Println("failed to push quit event")
+		}
+	}()
+
+	signal.Notify(signalCh, syscall.SIGTERM, syscall.SIGINT)
+
+	// Setup clock ticker
+	go func() {
+		for {
+			time.Sleep(time.Now().Add(time.Minute).Truncate(time.Minute).Sub(time.Now()))
+			ev := sdl.Event{ // Note: This is supposed to be sdl.UserEvent, but idk how to pass that
+				Type: EVENT_MINUTE_PASSED,
+			}
+			err := sdl.PushEvent(&ev)
+			if err != nil {
+				log.Println("Failed to push minute passed event:", err)
+			}
+		}
+	}()
+
+	// That's enough "framework" setup, now let's run the "application logic"
 
 	err = config.LoadConfig()
 	if err != nil {
@@ -232,15 +275,6 @@ func main() {
 		loader.LoadAssetsNow(AssetStageSecondary)
 		sc.RegisterNextScene(&MenuScene{})
 	}
-
-	signalCh := make(chan os.Signal)
-	go func() {
-		sig := <-signalCh
-		log.Println("Signal received: ", sig)
-		sc.RequestExit()
-	}()
-
-	signal.Notify(signalCh, syscall.SIGTERM, syscall.SIGINT)
 
 	log.Println("start")
 	err = sc.Run(renderer, f, int(windowW), int(windowH))

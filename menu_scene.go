@@ -4,6 +4,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"time"
 
 	"github.com/Zyko0/go-sdl3/sdl"
 	"github.com/marcsello/frig-launcher/asset_management/fonts"
@@ -22,6 +23,9 @@ type MenuScene struct {
 	choiceMade   bool
 	launched     bool
 	choiceMadeAt uint64
+
+	unbindCh chan struct{}
+	timeStr  string
 
 	iconsAnimators []*utils.TransitionAnimator
 }
@@ -195,7 +199,7 @@ func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 		return false, err
 	}
 
-	textClock, err := fonts.GetText(FontClock, "12:23")
+	textClock, err := fonts.GetText(FontClock, m.timeStr)
 	if err != nil {
 		return false, err
 	}
@@ -234,7 +238,15 @@ func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 }
 
 func (m *MenuScene) MaxInhibitMS() int32 {
-	return 15_000 // unfreeze every 15 sec, to keep the clock ticking
+	return -1 // allow inhibition forever
+}
+
+func (m *MenuScene) WallClockMinutePassed() { // This triggers a redraw
+	m.updateClock()
+}
+
+func (m *MenuScene) updateClock() { // This is called from a goroutine
+	m.timeStr = time.Now().Format("15:04")
 }
 
 func (m *MenuScene) Bind(fbc FeedbackController, sc SceneController) {
@@ -249,6 +261,8 @@ func (m *MenuScene) Bind(fbc FeedbackController, sc SceneController) {
 		m.selection = 0
 	}
 	m.lastSelection = -1
+
+	m.updateClock()
 }
 
 func (m *MenuScene) UnBind() {
@@ -256,7 +270,7 @@ func (m *MenuScene) UnBind() {
 	m.sc = nil
 }
 
-func (m *MenuScene) Input(intent UserIntent) {
+func (m *MenuScene) Input(intent UserIntent) { // This triggers a redraw
 	if m.choiceMade {
 		// input refused
 		return

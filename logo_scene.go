@@ -132,3 +132,5 @@ func (s *LogoScene) Input(_ UserIntent) {
 	// The user wants this to be skipped
 	s.finished = true
 }
+
+func (s *LogoScene) WallClockMinutePassed() {} // noop for logo

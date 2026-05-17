@@ -125,7 +125,15 @@ func (s *SceneControllerImpl) proxyInput(intent UserIntent) {
 	if s.currentScene != nil {
 		s.currentScene.Input(intent)
 	} else {
-		log.Println("Intent dropped: ", intent)
+		log.Println("Intent dropped:", intent)
+	}
+}
+
+func (s *SceneControllerImpl) proxyEvent(event SceneEvent, data any) {
+	if s.currentScene != nil {
+		s.currentScene.Event(event, data)
+	} else {
+		log.Println("Event dropped:", event)
 	}
 }
 
@@ -226,9 +234,13 @@ func (s *SceneControllerImpl) handleInput(blocking bool) {
 
 		if event.Type == EVENT_MINUTE_PASSED {
 			// Oh yes, my greatest hack to make the clock tick
-			if s.currentScene != nil {
-				s.currentScene.WallClockMinutePassed()
-			}
+			s.proxyEvent(EventWallClockMinutePassed, nil)
+		}
+
+		if event.Type == EVENT_NETWORK_CHANGED {
+			// Oh yes, my greatest hack to make the clock tick
+			ue := event.UserEvent()
+			s.proxyEvent(EventNetworkChanged, ue.Code == 1)
 		}
 
 	}

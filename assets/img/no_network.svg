@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="100mm"
+   height="100.00561mm"
+   viewBox="0 0 100 100.00561"
+   version="1.1"
+   id="svg1"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <g
+     id="layer1"
+     transform="translate(-349.96268,99.999994)">
+    <path
+       style="baseline-shift:baseline;display:inline;overflow:visible;vector-effect:none;fill:#ffffff;stroke-width:1;enable-background:accumulate;stop-color:#000000"
+       d="m 384.11112,-99.999999 -25.85302,29.752158 -2.96643,3.41382 h 4.4928 12.43512 v 29.650431 l 23.78305,-23.783049 1e-5,-5.867382 h 5.86737 l 5.91807,-5.918069 z m 0,9.064115 15.77814,18.15784 h -9.83064 l -1e-5,10.883035 -11.89501,11.89501 1e-5,-22.778045 h -9.83063 z"
+       id="path6-3" />
+    <path
+       style="baseline-shift:baseline;display:inline;overflow:visible;vector-effect:none;fill:#ffffff;stroke-width:0.999997;enable-background:accumulate;stop-color:#000000"
+       d="M 414.68256,7.3333333e-7 441.61774,-30.997514 l 3.09059,-3.556716 h -4.68086 -12.95562 v -30.891538 l -24.77858,24.802669 10e-6,6.088869 -6.08887,-6e-6 -6.17868,6.17868 z M 420.87901,-49.999999 l 1e-5,21.638594 h 10.24212 L 414.68256,-9.4435167 398.24398,-28.361405 h 10.24212 l -1e-5,-9.245674"
+       id="path6-3-0" />
+    <g
+       id="path14-6"
+       style="opacity:1;fill:#ffffff">
+      <path
+         style="baseline-shift:baseline;display:inline;overflow:visible;vector-effect:none;fill:#ffffff;enable-background:accumulate;stop-color:#000000;stop-opacity:1"
+         d="M 449.96268,-99.999998 349.96267,-8.9517791e-8"
+         id="path17" />
+      <path
+         style="baseline-shift:baseline;display:inline;overflow:visible;vector-effect:none;fill:#ffffff;enable-background:accumulate;stop-color:#000000;stop-opacity:1"
+         d="m 443.69335,-99.999999 -88.40169,88.401695 V 0.00560212 L 356.23242,7.6291294e-7 444.70832,-88.475892 v -11.521112 z"
+         id="path18" />
+    </g>
+  </g>
+</svg>

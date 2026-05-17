@@ -133,4 +133,4 @@ func (s *LogoScene) Input(_ UserIntent) {
 	s.finished = true
 }
 
-func (s *LogoScene) WallClockMinutePassed() {} // noop for logo
+func (s *LogoScene) Event(SceneEvent, any) {} // noop for logo

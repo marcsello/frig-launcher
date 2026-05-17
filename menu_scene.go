@@ -24,8 +24,8 @@ type MenuScene struct {
 	launched     bool
 	choiceMadeAt uint64
 
-	unbindCh chan struct{}
-	timeStr  string
+	networkOnline bool
+	timeStr       string
 
 	iconsAnimators []*utils.TransitionAnimator
 }
@@ -155,6 +155,13 @@ func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 		}
 	}
 
+	var netImgTextureID int
+	if m.networkOnline {
+		netImgTextureID = IMGYesNetwork
+	} else {
+		netImgTextureID = IMGNoNetwork
+	}
+
 	// This was all the calculations basically, so now we just draw everything
 
 	err = renderer.SetDrawColor(0, 0, 0, 255)
@@ -229,7 +236,24 @@ func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 		return false, err
 	}
 
-	err = textClock.DrawRenderer(float32(scrW-32-int(textClockW)), 32)
+	err = textClock.DrawRenderer(float32(scrW-72-int(textClockW)), 32)
+	if err != nil {
+		return false, err
+	}
+
+	networkIcon, _ := image.GetTexture(netImgTextureID)
+
+	err = networkIcon.SetAlphaMod(textValue)
+	if err != nil {
+		return false, err
+	}
+
+	err = renderer.RenderTexture(networkIcon, nil, &sdl.FRect{
+		X: float32(scrW - 48 - int(networkIcon.W/2)),
+		Y: 40,
+		W: float32(networkIcon.W),
+		H: float32(networkIcon.H),
+	})
 	if err != nil {
 		return false, err
 	}
@@ -241,8 +265,14 @@ func (m *MenuScene) MaxInhibitMS() int32 {
 	return -1 // allow inhibition forever
 }
 
-func (m *MenuScene) WallClockMinutePassed() { // This triggers a redraw
-	m.updateClock()
+func (m *MenuScene) Event(event SceneEvent, data any) { // This triggers a redraw
+	switch event {
+	case EventWallClockMinutePassed:
+		m.updateClock()
+	case EventNetworkChanged:
+		newState := data.(bool)
+		m.networkOnline = newState
+	}
 }
 
 func (m *MenuScene) updateClock() { // This is called from a goroutine
@@ -263,6 +293,7 @@ func (m *MenuScene) Bind(fbc FeedbackController, sc SceneController) {
 	m.lastSelection = -1
 
 	m.updateClock()
+	m.networkOnline = networkOnline.Load()
 }
 
 func (m *MenuScene) UnBind() {

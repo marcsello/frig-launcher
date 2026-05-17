@@ -4,15 +4,23 @@ import (
 	"github.com/Zyko0/go-sdl3/sdl"
 )
 
-type UserIntent uint8
+type (
+	UserIntent uint8
+	SceneEvent uint8
+)
 
 const (
-	IntentNext   = iota
-	IntentPrev   = iota
-	IntentUp     = iota
-	IntentDown   = iota
-	IntentSelect = iota
-	IntentBack   = iota
+	IntentNext UserIntent = iota
+	IntentPrev
+	IntentUp
+	IntentDown
+	IntentSelect
+	IntentBack
+)
+
+const (
+	EventWallClockMinutePassed SceneEvent = iota
+	EventNetworkChanged
 )
 
 // SceneController facilitates chaining scenes, if the next scene is registered and the current scene stops requesting drawing then it starts the next one
@@ -44,10 +52,13 @@ type Scene interface {
 	UnBind()
 
 	// Input handles the user input translated from the different input devices
+	// After calling Input, a redraw is automatically issued
 	Input(intent UserIntent)
 
-	// WallClockMinutePassed is called every minute passed by the clock on the wall... yeah
-	WallClockMinutePassed()
+	// Event is called for other events than user intention
+	// After calling Event, a redraw is automatically issued
+	// Additional info can be passed through data
+	Event(event SceneEvent, data any)
 
 	// MaxInhibitMS is the maximum time this scene allows inhibition,
 	// accessed just before inhibition,

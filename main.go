@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/marcsello/frig-launcher/asset_management/loader"
 	"github.com/marcsello/frig-launcher/asset_management/sound"
 	"github.com/marcsello/frig-launcher/config"
+	"github.com/marcsello/frig-launcher/network"
 	"github.com/marcsello/frig-launcher/utils"
 	"gitlab.com/MikeTTh/env"
 )
@@ -36,6 +38,8 @@ const (
 const (
 	IMGTRex = iota
 	IMGFrig
+	IMGNoNetwork
+	IMGYesNetwork
 
 	IMGIcon // this is basically a marker
 )
@@ -45,7 +49,14 @@ const (
 	FontClock
 )
 
-const EVENT_MINUTE_PASSED = sdl.EVENT_USER // it is not registered, but it does not seem necessary: https://github.com/libsdl-org/SDL/blob/a34b35a382bffcd430465e273264021fb0f2fab1/src/events/SDL_events.c#L1963-L1974
+const (
+	EVENT_MINUTE_PASSED = iota + sdl.EVENT_USER // it is not registered, but it does not seem necessary: https://github.com/libsdl-org/SDL/blob/a34b35a382bffcd430465e273264021fb0f2fab1/src/events/SDL_events.c#L1963-L1974
+	EVENT_NETWORK_CHANGED
+)
+
+var (
+	networkOnline atomic.Bool
+)
 
 type FeedbackControllerWrapper struct{}
 
@@ -210,13 +221,37 @@ func main() {
 	go func() {
 		for {
 			time.Sleep(time.Now().Add(time.Minute).Truncate(time.Minute).Sub(time.Now()))
-			ev := sdl.Event{ // Note: This is supposed to be sdl.UserEvent, but idk how to pass that
-				Type: EVENT_MINUTE_PASSED,
+			evt := sdl.UserEvent{
+				Type: uint32(EVENT_MINUTE_PASSED), // I think the library is broken here...
 			}
-			err := sdl.PushEvent(&ev)
+			err := utils.PushUserEvent(&evt)
 			if err != nil {
 				log.Println("Failed to push minute passed event:", err)
 			}
+		}
+	}()
+
+	// Setup network checker
+	go func() {
+		firstLoop := true
+		for {
+			state := network.HasNetwork()
+			lastState := networkOnline.Swap(state)
+
+			if state != lastState || firstLoop {
+				log.Println("Network state changed to", state)
+				ev := sdl.UserEvent{
+					Type: uint32(EVENT_NETWORK_CHANGED),
+					Code: int32(utils.BoolToInt(state)),
+				}
+				err = utils.PushUserEvent(&ev)
+				if err != nil {
+					log.Println("Failed to push network changed event:", err)
+				}
+			}
+
+			firstLoop = false
+			time.Sleep(time.Second * 10) // sleep 10 seconds before polling the network again...
 		}
 	}()
 
@@ -243,6 +278,8 @@ func main() {
 		loader.MustRegisterAsset(loader.SoundAsset, AssetStageSecondary, SNDSelect, "snd/select.wav")
 	}
 	loader.MustRegisterAsset(loader.ImageAsset, AssetStageSecondary, IMGFrig, "img/frig.png")
+	loader.MustRegisterAsset(loader.ImageAsset, AssetStageSecondary, IMGNoNetwork, "img/no_network.svg", loader.SVGScaleByH(32)) // same scale as text
+	loader.MustRegisterAsset(loader.ImageAsset, AssetStageSecondary, IMGYesNetwork, "img/yes_network.svg", loader.SVGScaleByH(32))
 
 	for i, app := range config.Config.Applications {
 		loader.MustRegisterAsset(loader.ImageAsset, AssetStageSecondary, IMGIcon+i, app.Icon, loader.SVGScaleByH(windowH/2)) // the largest icon size ever displayed

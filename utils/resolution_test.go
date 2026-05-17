@@ -9,8 +9,8 @@ func TestParseResolution(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		wantW   int
-		wantH   int
+		wantW   int32
+		wantH   int32
 		wantErr bool
 	}{
 		{

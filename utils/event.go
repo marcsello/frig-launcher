@@ -1,6 +1,10 @@
 package utils
 
-import "github.com/Zyko0/go-sdl3/sdl"
+import (
+	"unsafe"
+
+	"github.com/Zyko0/go-sdl3/sdl"
+)
 
 func EventStr(event sdl.EventType) string {
 	if event >= sdl.EVENT_USER && event < sdl.EVENT_LAST {
@@ -245,4 +249,8 @@ func EventStr(event sdl.EventType) string {
 	default:
 		return "unknown"
 	}
+}
+
+func PushUserEvent(ue *sdl.UserEvent) error {
+	return sdl.PushEvent((*sdl.Event)(unsafe.Pointer(ue)))
 }

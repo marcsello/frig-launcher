@@ -94,7 +94,7 @@ func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 			selectedValue = 0
 		}
 
-		if since > 550_000_000 && !m.launched {
+		if since > 750_000_000 && !m.launched { // actually launch the app after 750ms
 			log.Println("launch")
 			Launch(config.Config.Applications[m.selection].Exec)
 			m.launched = true

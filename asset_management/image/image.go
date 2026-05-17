@@ -14,20 +14,38 @@ var (
 	renderer *sdl.Renderer // needed for converting surface to textures
 )
 
-func LoadImageResource(id int, path string) error {
+// LoadImageResource loads an image resource to a resource id. Parameters svgScaleW and svgScaleH are only used when loading an SVG image, ignored otherwise.
+func LoadImageResource(id int, path string, svgScaleW, svgScaleH int32) error {
 	_, ok := textures[id]
 	if ok {
 		return fmt.Errorf("image id %d already in use", id)
 	}
+	if renderer == nil {
+		panic("forgot to init")
+	}
 
-	surface, err := img.Load(path)
+	ioStream, err := sdl.IOFromFile(path, "r")
+	if err != nil {
+		log.Println("Failed to open resource:", err)
+		return err
+	}
+	defer func(ioStream *sdl.IOStream) {
+		err := ioStream.Close()
+		if err != nil {
+			log.Printf("WARNING: failed to close io stream for %s: %v", path, err)
+		}
+	}(ioStream)
+
+	var surface *sdl.Surface
+	if img.IsSVG(ioStream) && (svgScaleH > 0 || svgScaleW > 0) {
+		log.Printf("%s is an SVG image, scaling to %dx%d", path, svgScaleW, svgScaleH)
+		surface, err = img.LoadSizedSVG_IO(ioStream, svgScaleW, svgScaleH)
+	} else {
+		surface, err = img.LoadIO(ioStream, false) // we have a deferred close
+	}
 	if err != nil {
 		log.Println("ERROR: Failed to load image:", err)
 		return err
-	}
-
-	if renderer == nil {
-		panic("forgot to init")
 	}
 
 	textures[id], err = renderer.CreateTextureFromSurface(surface)

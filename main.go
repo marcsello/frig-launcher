@@ -202,7 +202,7 @@ func main() {
 	loader.MustRegisterAsset(loader.ImageAsset, AssetStageSecondary, IMGFrig, "img/frig.png")
 
 	for i, app := range config.Config.Applications {
-		loader.MustRegisterAsset(loader.ImageAsset, AssetStageSecondary, IMGIcon+i, app.Icon)
+		loader.MustRegisterAsset(loader.ImageAsset, AssetStageSecondary, IMGIcon+i, app.Icon, loader.SVGScaleByH(windowH/2)) // the largest icon size ever displayed
 	}
 
 	loader.MustRegisterAsset(loader.FontAsset, AssetStageSecondary, FontTitle, "NotoSans-Bold.ttf", loader.FontSize(48))

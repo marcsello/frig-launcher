@@ -17,7 +17,9 @@ type Asset struct {
 	ID          int // user defined id used for accessing the resource by the asset subsystems
 	AbsFilePath string
 
-	FontSize float32 // specific to font only
+	FontSize  float32 // specific to font only
+	SVGScaleW int32   // specific to img type of svg only
+	SVGScaleH int32   // specific to img type of svg only
 
 	Loaded bool
 }
@@ -27,6 +29,27 @@ type ExtraConfig func(*Asset)
 func FontSize(ptSize float32) ExtraConfig {
 	return func(asset *Asset) {
 		asset.FontSize = ptSize
+	}
+}
+
+func SVGScale(w, h int32) ExtraConfig {
+	return func(asset *Asset) {
+		asset.SVGScaleW = w
+		asset.SVGScaleH = h
+	}
+}
+
+func SVGScaleByW(w int32) ExtraConfig {
+	return func(asset *Asset) {
+		asset.SVGScaleW = w
+		asset.SVGScaleH = 0
+	}
+}
+
+func SVGScaleByH(h int32) ExtraConfig {
+	return func(asset *Asset) {
+		asset.SVGScaleW = 0
+		asset.SVGScaleH = h
 	}
 }
 
@@ -80,7 +103,7 @@ func loadAsset(asset Asset) error {
 	case SoundAsset:
 		return sound.LoadSnd(asset.ID, asset.AbsFilePath)
 	case ImageAsset:
-		return image.LoadImageResource(asset.ID, asset.AbsFilePath)
+		return image.LoadImageResource(asset.ID, asset.AbsFilePath, asset.SVGScaleW, asset.SVGScaleH)
 	case FontAsset:
 		return fonts.LoadFont(asset.ID, asset.AbsFilePath, asset.FontSize)
 	default:

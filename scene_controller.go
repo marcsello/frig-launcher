@@ -7,6 +7,8 @@ import (
 	"github.com/Zyko0/go-sdl3/sdl"
 )
 
+const AxisDeadzone = 1024
+
 type SceneControllerImpl struct {
 	currentScene Scene
 	nextScene    Scene
@@ -18,6 +20,8 @@ type SceneControllerImpl struct {
 	gamepads []*sdl.Gamepad
 
 	gamepadUncoverCombo int
+
+	lastGamepadAxisDirection int
 }
 
 func (s *SceneControllerImpl) desiredDeltaNS() uint64 {
@@ -244,6 +248,24 @@ func (s *SceneControllerImpl) handleInput(blocking bool) {
 		}
 		if event.Type == sdl.EVENT_GAMEPAD_REMOVED {
 			log.Println("gamepad removed")
+		}
+		if event.Type == sdl.EVENT_GAMEPAD_AXIS_MOTION {
+			mo := event.GamepadAxisEvent()
+			if mo.Axis == uint8(sdl.GAMEPAD_AXIS_LEFTX) {
+				if mo.Value > AxisDeadzone {
+					if s.lastGamepadAxisDirection != 1 {
+						s.proxyInput(IntentNext)
+					}
+					s.lastGamepadAxisDirection = 1
+				} else if mo.Value < -AxisDeadzone {
+					if s.lastGamepadAxisDirection != -1 {
+						s.proxyInput(IntentPrev)
+					}
+					s.lastGamepadAxisDirection = -1
+				} else {
+					s.lastGamepadAxisDirection = 0
+				}
+			}
 		}
 
 		if event.Type == EVENT_MINUTE_PASSED {

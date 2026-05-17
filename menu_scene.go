@@ -12,6 +12,7 @@ import (
 	"github.com/marcsello/frig-launcher/asset_management/fonts"
 	"github.com/marcsello/frig-launcher/asset_management/image"
 	"github.com/marcsello/frig-launcher/config"
+	"github.com/marcsello/frig-launcher/executor"
 	"github.com/marcsello/frig-launcher/utils"
 )
 
@@ -96,7 +97,10 @@ func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 
 		if since > 750_000_000 && !m.launched { // actually launch the app after 750ms
 			log.Println("launch")
-			Launch(config.Config.Applications[m.selection].Exec)
+			err = executor.Launch(config.Config.Applications[m.selection].Exec)
+			if err != nil {
+				return false, err
+			}
 			m.launched = true
 		}
 

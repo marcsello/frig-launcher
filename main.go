@@ -19,6 +19,7 @@ import (
 	"github.com/marcsello/frig-launcher/asset_management/loader"
 	"github.com/marcsello/frig-launcher/asset_management/sound"
 	"github.com/marcsello/frig-launcher/config"
+	"github.com/marcsello/frig-launcher/executor"
 	"github.com/marcsello/frig-launcher/network"
 	"github.com/marcsello/frig-launcher/utils"
 	"gitlab.com/MikeTTh/env"
@@ -80,17 +81,7 @@ func (m MuteFeedbackController) OnSelect() {}
 
 func (m MuteFeedbackController) OnError() {}
 
-func main() {
-	var argShowSplash bool
-	var argAudio bool
-	var argWindow string
-	var desiredFPS uint64
-	flag.BoolVar(&argShowSplash, "splash", true, "Show splash screen")
-	flag.BoolVar(&argAudio, "audio", true, "Enable audio")
-	flag.Uint64Var(&desiredFPS, "desiredFPS", 30, "Limit FPS to desired value")
-	flag.StringVar(&argWindow, "window", "", "Use windowed mode with the specified resolution. Example -window=1024x768 otherwise will be fullscreen")
-	flag.Parse()
-
+func sdlMain(showSplash, audioEnabled bool, windowW, windowH int32, desiredFPS uint64) error {
 	defer binsdl.Load().Unload()
 	defer binimg.Load().Unload()
 	defer binttf.Load().Unload()
@@ -100,12 +91,14 @@ func main() {
 
 	err = sdl.Init(sdl.INIT_VIDEO | sdl.INIT_AUDIO | sdl.INIT_GAMEPAD)
 	if err != nil {
-		panic(err)
+		log.Println("SDL init failed:", err)
+		return err
 	}
 
 	err = ttf.Init()
 	if err != nil {
-		panic(err)
+		log.Println("TTF init failed:", err)
+		return err
 	}
 
 	if !env.Bool("FRIG_NO_SCREENSAVER_INHIBIT", false) {
@@ -128,30 +121,26 @@ func main() {
 
 	dm, err := displayID.CurrentDisplayMode()
 	if err != nil {
-		panic(err)
+		log.Println("Failed to determine current display mode:", err)
+		return err
 	}
 
 	log.Printf("Desktop: %dx%d @%fHz", dm.W, dm.H, dm.RefreshRate)
 
 	var windowFlags sdl.WindowFlags
-	var windowW, windowH int32
 
-	if argWindow == "" {
+	if windowW == 0 && windowH == 0 {
 		windowFlags = sdl.WINDOW_FULLSCREEN | sdl.WINDOW_BORDERLESS | sdl.WINDOW_INPUT_FOCUS | sdl.WINDOW_ALWAYS_ON_TOP
 		windowW = dm.W
 		windowH = dm.H
-	} else {
-		windowW, windowH, err = utils.ParseResolution(argWindow)
-		if err != nil {
-			panic(err)
-		}
 	}
 
 	window, renderer, err := sdl.CreateWindowAndRenderer("FRIG Launcher", int(windowW), int(windowH),
 		windowFlags,
 	)
 	if err != nil {
-		panic(err)
+		log.Println("Failed to create SDL3 Window and Renderer:", err)
+		return err
 	}
 	defer renderer.Destroy()
 	defer window.Destroy()
@@ -173,13 +162,13 @@ func main() {
 		log.Println("WARNING: Failed to hide cursor:", err)
 	}
 
-	// re-read the value to "verify" it
-	windowW, windowH, err = window.Size()
+	// re-read the value to "verify" (log) it
+	curWindowW, curWindowH, err := window.Size()
 	if err != nil {
-		panic(err)
+		log.Println("WARNING: failed to read current window size:", err)
+	} else {
+		log.Printf("Window size: %dx%d", curWindowW, curWindowH)
 	}
-
-	log.Printf("Window size: %dx%d", windowW, windowH)
 
 	if sdl.HasGamepad() {
 		log.Println("Gamepads detected")
@@ -187,7 +176,7 @@ func main() {
 		log.Println("WARNING: No gamepads detected!")
 	}
 
-	if argAudio {
+	if audioEnabled {
 		err = sound.Init()
 		if err != nil {
 			log.Println("WARNING: Audio init failed:", err)
@@ -255,25 +244,18 @@ func main() {
 		}
 	}()
 
+	loader.Reset()
+
 	// That's enough "framework" setup, now let's run the "application logic"
 
-	err = config.LoadConfig()
-	if err != nil {
-		log.Println("Failed to load config")
-		panic(err)
-	}
-	if len(config.Config.Applications) == 0 {
-		log.Println("WARNING: No applications defined!!!")
-	}
-
 	// Assets needed at the very beginning
-	if argAudio {
+	if audioEnabled {
 		loader.MustRegisterAsset(loader.SoundAsset, AssetStagePrimary, SNDLogo, "snd/logo.wav")
 	}
 	loader.MustRegisterAsset(loader.ImageAsset, AssetStagePrimary, IMGTRex, "img/trex.png")
 
 	// will be loaded while displaying the logo
-	if argAudio {
+	if audioEnabled {
 		loader.MustRegisterAsset(loader.SoundAsset, AssetStageSecondary, SNDNavigate, "snd/navigate.wav")
 		loader.MustRegisterAsset(loader.SoundAsset, AssetStageSecondary, SNDSelect, "snd/select.wav")
 	}
@@ -290,7 +272,7 @@ func main() {
 
 	loader.LoadAssetsNow(AssetStagePrimary)
 
-	if argAudio && argShowSplash {
+	if audioEnabled && showSplash {
 		// play logo immediately
 		err = sound.PlaySnd(SNDLogo)
 		if err != nil {
@@ -299,24 +281,64 @@ func main() {
 	}
 
 	var f FeedbackController
-	if argAudio {
+	if audioEnabled {
 		f = &FeedbackControllerWrapper{}
 	} else {
 		f = &MuteFeedbackController{}
 	}
 
 	sc := &SceneControllerImpl{DesiredFPS: desiredFPS}
-	if argShowSplash {
+	if showSplash {
 		sc.RegisterNextScene(&LogoScene{})
 	} else {
 		loader.LoadAssetsNow(AssetStageSecondary)
 		sc.RegisterNextScene(&MenuScene{})
 	}
 
-	log.Println("start")
+	log.Println("start main loop")
 	err = sc.Run(renderer, f, int(windowW), int(windowH))
+	if err != nil {
+		log.Println("Error in main loop:", err)
+		return err
+	}
+	log.Println("clean exit")
+	return nil
+}
+
+func main() {
+	var argShowSplash bool
+	var argAudio bool
+	var argWindow string
+	var desiredFPS uint64
+	flag.BoolVar(&argShowSplash, "splash", true, "Show splash screen")
+	flag.BoolVar(&argAudio, "audio", true, "Enable audio")
+	flag.Uint64Var(&desiredFPS, "desiredFPS", 30, "Limit FPS to desired value")
+	flag.StringVar(&argWindow, "window", "", "Use windowed mode with the specified resolution. Example -window=1024x768 otherwise will be fullscreen")
+	flag.Parse()
+
+	var err error
+	var windowW, windowH int32
+	if argWindow != "" {
+		windowW, windowH, err = utils.ParseResolution(argWindow)
+		if err != nil {
+			log.Println("Failed to parse desired window size")
+			return
+		}
+	}
+
+	err = config.LoadConfig()
+	if err != nil {
+		log.Println("Failed to load config")
+		panic(err)
+	}
+	if len(config.Config.Applications) == 0 {
+		log.Println("WARNING: No applications defined!!!")
+	}
+
+	err = sdlMain(argShowSplash, argAudio, windowW, windowH, desiredFPS)
 	if err != nil {
 		panic(err)
 	}
-	log.Println("clean exit")
+	log.Println("SDL cleaned up")
+	executor.AtExit()
 }

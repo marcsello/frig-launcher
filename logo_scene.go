@@ -18,7 +18,6 @@ type LogoScene struct {
 }
 
 func (s *LogoScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool, dtNS, durationNS uint64) (bool, error) {
-
 	trex, _ := image.GetTexture(IMGTRex)
 
 	durationMs := float64(durationNS) / 1000.0 / 1000.0

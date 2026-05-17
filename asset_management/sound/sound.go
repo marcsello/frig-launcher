@@ -67,15 +67,21 @@ func Init() error {
 		return err
 	}
 
+	log.Println("Audio init successful")
 	audioWorks = true
 	return nil
 }
 
 func Close() {
+	audioWorks = false
+	sounds = nil
+
 	for _, stream := range streams {
 		_ = stream.Clear()
 		stream.Destroy()
 	}
+	streams = nil
+
 	_ = devID.Pause()
 	devID.Close()
 	log.Println("Audio closed")

@@ -132,3 +132,7 @@ func LoadAssetsNow(stage int) {
 		asset.Loaded = true
 	}
 }
+
+func Reset() {
+	assets = nil
+}

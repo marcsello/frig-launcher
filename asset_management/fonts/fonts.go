@@ -74,8 +74,13 @@ func Close() {
 	for _, preRenderedText := range texts {
 		preRenderedText.Destroy()
 	}
+	texts = nil // ensure the GC can clean it up
+
 	for _, font := range fonts {
 		font.Close()
 	}
+	fonts = nil
+
 	textEngine.DestroyRenderer()
+	textEngine = nil
 }

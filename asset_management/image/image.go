@@ -73,5 +73,6 @@ func Close() {
 	for _, texture := range textures {
 		texture.Destroy()
 	}
+	textures = nil
 	renderer = nil
 }

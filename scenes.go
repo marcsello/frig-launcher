@@ -16,6 +16,7 @@ const (
 	IntentDown
 	IntentSelect
 	IntentBack
+	IntentAdvanced
 )
 
 const (

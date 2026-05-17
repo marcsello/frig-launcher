@@ -16,6 +16,8 @@ type SceneControllerImpl struct {
 	exitRequested bool
 
 	gamepads []*sdl.Gamepad
+
+	gamepadUncoverCombo int
 }
 
 func (s *SceneControllerImpl) desiredDeltaNS() uint64 {
@@ -195,6 +197,8 @@ func (s *SceneControllerImpl) handleInput(blocking bool) {
 				s.proxyInput(IntentNext)
 			case sdl.K_RETURN, sdl.K_RETURN2, sdl.K_SPACE:
 				s.proxyInput(IntentSelect)
+			case sdl.K_F2:
+				s.proxyInput(IntentAdvanced)
 			}
 		}
 
@@ -212,7 +216,17 @@ func (s *SceneControllerImpl) handleInput(blocking bool) {
 				s.proxyInput(IntentBack)
 			case sdl.GAMEPAD_BUTTON_START, sdl.GAMEPAD_BUTTON_SOUTH:
 				s.proxyInput(IntentSelect)
+			case sdl.GAMEPAD_BUTTON_RIGHT_SHOULDER, sdl.GAMEPAD_BUTTON_LEFT_SHOULDER, sdl.GAMEPAD_BUTTON_LEFT_STICK:
+				s.gamepadUncoverCombo++
+				if s.gamepadUncoverCombo == 3 {
+					s.proxyInput(IntentAdvanced)
+					s.gamepadUncoverCombo = 0
+				}
 			}
+		}
+
+		if event.Type == sdl.EVENT_GAMEPAD_BUTTON_UP {
+			s.gamepadUncoverCombo = 0
 		}
 
 		if event.Type == sdl.EVENT_GAMEPAD_ADDED {

@@ -4,14 +4,22 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"slices"
 	"time"
 
 	"github.com/Zyko0/go-sdl3/sdl"
+	"github.com/Zyko0/go-sdl3/ttf"
 	"github.com/marcsello/frig-launcher/asset_management/fonts"
 	"github.com/marcsello/frig-launcher/asset_management/image"
 	"github.com/marcsello/frig-launcher/config"
 	"github.com/marcsello/frig-launcher/utils"
 )
+
+type localIcon struct {
+	Name     string
+	ConfigID int
+	Animator *utils.TransitionAnimator
+}
 
 type MenuScene struct {
 	fbc FeedbackController
@@ -27,7 +35,9 @@ type MenuScene struct {
 	networkOnline bool
 	timeStr       string
 
-	iconsAnimators []*utils.TransitionAnimator
+	needIconInit bool // looping through all icons in each frame could be taxing
+	engineerMode bool
+	icons        []localIcon
 }
 
 func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool, dtNS, durationNS uint64) (bool, error) {
@@ -38,15 +48,19 @@ func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 	inactiveIconSize := float32(scrW / 6)
 	activeIconSize := float32(scrH / 2)
 
-	if firstFrame {
+	if m.needIconInit { // This used to run on the firstFrame, but now icons can be added on the fly
 		// Initialize these with random off-screen positions
 		radius := math.Max(float64(scrW), float64(scrH)) + float64(activeIconSize)
-		for i := range m.iconsAnimators {
+		for i, icon := range m.icons {
+			if icon.Animator != nil {
+				continue
+			}
+
 			rad := rand.Float64() * 2 * math.Pi
 			x := float64(scrW/2) + radius*math.Cos(rad)
 			y := float64(scrH/2) + radius*math.Sin(rad)
 
-			m.iconsAnimators[i] = &utils.TransitionAnimator{Rect: sdl.FRect{
+			m.icons[i].Animator = &utils.TransitionAnimator{Rect: sdl.FRect{
 				X: float32(x),
 				Y: float32(y),
 				W: inactiveIconSize,
@@ -104,8 +118,8 @@ func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 		textValue = 255
 	}
 
-	if m.lastSelection != m.selection {
-		for i := range m.iconsAnimators {
+	if m.lastSelection != m.selection || m.needIconInit {
+		for i, icon := range m.icons {
 
 			x := (float32(scrW) - activeIconSize) / 2 // center by default
 
@@ -143,14 +157,16 @@ func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 				}
 			}
 
-			m.iconsAnimators[i].SetDesired(rect)
+			icon.Animator.SetDesired(rect)
 		}
 		m.lastSelection = m.selection
 		anythingMoved = true // selection changed, something must have moved
 	}
 
-	for i := range m.iconsAnimators {
-		if m.iconsAnimators[i].Update(dtNS) {
+	m.needIconInit = false // just as with everything in this code, this is strategically positioned here
+
+	for _, icon := range m.icons {
+		if icon.Animator.Update(dtNS) {
 			anythingMoved = true
 		}
 	}
@@ -174,7 +190,7 @@ func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 		return false, err
 	}
 
-	for i := range config.Config.Applications {
+	for i, icon := range m.icons {
 		var v uint8
 		if i == m.selection {
 			v = selectedValue
@@ -182,36 +198,38 @@ func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 			v = unselectedValue
 		}
 
-		var icon *sdl.Texture
-		icon, _ = image.GetTexture(IMGIcon + i)
-		err = icon.SetAlphaMod(v)
+		var iconTexture *sdl.Texture
+		iconTexture, _ = image.GetTexture(IMGIcon + icon.ConfigID)
+		err = iconTexture.SetAlphaMod(v)
 		if err != nil {
 			return false, err
 		}
 
-		anim := m.iconsAnimators[i]
-		if anim.Rect.X > float32(scrW) || anim.Rect.X < -anim.Rect.W || anim.Rect.Y > float32(scrH) || anim.Rect.Y < -anim.Rect.H {
+		drawRect := icon.Animator.Rect
+		if drawRect.X > float32(scrW) || drawRect.X < -drawRect.W || drawRect.Y > float32(scrH) || drawRect.Y < -drawRect.H {
 			// no need to render these
 			continue
 		}
 
-		err = renderer.RenderTexture(icon, nil, &anim.Rect)
+		err = renderer.RenderTexture(iconTexture, nil, &drawRect)
 		if err != nil {
 			return false, err
 		}
 	}
 
-	textTitle, err := fonts.GetText(FontTitle, config.Config.Applications[m.selection].Name)
-	if err != nil {
-		return false, err
-	}
+	// Draw "HUD"
 
-	textClock, err := fonts.GetText(FontClock, m.timeStr)
+	textTitle, err := fonts.GetText(FontTitle, m.icons[m.selection].Name)
 	if err != nil {
 		return false, err
 	}
 
 	err = textTitle.SetColor(255, 255, 255, textValue)
+	if err != nil {
+		return false, err
+	}
+
+	textClock, err := fonts.GetText(FontClock, m.timeStr)
 	if err != nil {
 		return false, err
 	}
@@ -258,6 +276,24 @@ func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 		return false, err
 	}
 
+	if m.engineerMode {
+		var textEngineeringLabel *ttf.Text
+		textEngineeringLabel, err = fonts.GetText(FontClock, "ENGINEER MODE")
+		if err != nil {
+			return false, err
+		}
+
+		err = textEngineeringLabel.SetColor(255, 255, 255, textValue)
+		if err != nil {
+			return false, err
+		}
+
+		err = textEngineeringLabel.DrawRenderer(32, 32)
+		if err != nil {
+			return false, err
+		}
+	}
+
 	return anythingMoved, nil
 }
 
@@ -283,7 +319,13 @@ func (m *MenuScene) Bind(fbc FeedbackController, sc SceneController) {
 	m.fbc = fbc
 	m.sc = sc
 
-	m.iconsAnimators = make([]*utils.TransitionAnimator, len(config.Config.Applications)) // this will be all nil at first
+	// copy the "visible icons"
+	for id, cfg := range config.Config.Applications {
+		if cfg.Hidden {
+			continue
+		}
+		m.icons = append(m.icons, localIcon{Name: cfg.Name, ConfigID: id})
+	}
 
 	// try to select the icon at the middle
 	m.selection = len(config.Config.Applications)/2 - 1
@@ -294,6 +336,7 @@ func (m *MenuScene) Bind(fbc FeedbackController, sc SceneController) {
 
 	m.updateClock()
 	m.networkOnline = networkOnline.Load()
+	m.needIconInit = true
 }
 
 func (m *MenuScene) UnBind() {
@@ -315,11 +358,44 @@ func (m *MenuScene) Input(intent UserIntent) { // This triggers a redraw
 		m.inputPrev()
 	case IntentSelect:
 		m.inputSelect()
+	case IntentAdvanced:
+		m.enterEngineerMode()
 	}
+}
+func (m *MenuScene) enterEngineerMode() {
+	if m.engineerMode {
+		return
+	}
+	m.engineerMode = true
+
+	oldSelectionConfigID := m.icons[m.selection].ConfigID
+
+	// insert the "hidden icons"
+	for id, cfg := range config.Config.Applications {
+		if !cfg.Hidden {
+			continue
+		}
+
+		insertIdx := slices.IndexFunc(m.icons, func(icon localIcon) bool {
+			return icon.ConfigID > id
+		})
+		if insertIdx == -1 {
+			m.icons = append(m.icons, localIcon{Name: cfg.Name, ConfigID: id})
+		} else {
+			m.icons = slices.Insert(m.icons, insertIdx, localIcon{Name: cfg.Name, ConfigID: id})
+		}
+	}
+
+	// re-position the selection
+	m.selection = slices.IndexFunc(m.icons, func(icon localIcon) bool {
+		return icon.ConfigID == oldSelectionConfigID
+	})
+
+	m.needIconInit = true
 }
 
 func (m *MenuScene) inputNext() {
-	if m.selection == len(config.Config.Applications)-1 {
+	if m.selection == len(m.icons)-1 {
 		return
 	}
 

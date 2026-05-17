@@ -9,9 +9,10 @@ import (
 )
 
 type Application struct {
-	Name string   `yaml:"name"`
-	Icon string   `yaml:"icon"`
-	Exec []string `yaml:"exec"`
+	Name   string   `yaml:"name"`
+	Icon   string   `yaml:"icon"`
+	Hidden bool     `yaml:"hidden"`
+	Exec   []string `yaml:"exec"`
 }
 
 type Root struct {

@@ -11,6 +11,7 @@ import (
 )
 
 // TODO: this could be made event driven
+// TODO: expose some network settings to display in engineering mode
 
 func HasNetwork() bool {
 	addrs, err := gateway.DiscoverGateways()

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"math"
 	"math/rand"
@@ -12,7 +13,7 @@ import (
 	"github.com/marcsello/frig-launcher/asset_management/fonts"
 	"github.com/marcsello/frig-launcher/asset_management/image"
 	"github.com/marcsello/frig-launcher/config"
-	"github.com/marcsello/frig-launcher/executor"
+	"github.com/marcsello/frig-launcher/launcher"
 	"github.com/marcsello/frig-launcher/utils"
 )
 
@@ -97,7 +98,7 @@ func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 
 		if since > 750_000_000 && !m.launched { // actually launch the app after 750ms
 			log.Println("launch")
-			err = executor.Launch(config.Config.Applications[m.selection].Exec)
+			err = launcher.Launch(config.Config.Applications[m.selection].Exec)
 			if err != nil {
 				return false, err
 			}
@@ -223,7 +224,7 @@ func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 
 	// Draw "HUD"
 
-	textTitle, err := fonts.GetText(FontTitle, m.icons[m.selection].Name)
+	textTitle, err := fonts.GetText(FontTitle, m.icons[m.selection].Name, true)
 	if err != nil {
 		return false, err
 	}
@@ -233,7 +234,7 @@ func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 		return false, err
 	}
 
-	textClock, err := fonts.GetText(FontClock, m.timeStr)
+	textClock, err := fonts.GetText(FontClock, m.timeStr, true)
 	if err != nil {
 		return false, err
 	}
@@ -282,12 +283,12 @@ func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 
 	if m.engineerMode {
 		var textEngineeringLabel *ttf.Text
-		textEngineeringLabel, err = fonts.GetText(FontClock, "ENGINEER MODE")
+		textEngineeringLabel, err = fonts.GetText(FontClock, "ENGINEER MODE", true)
 		if err != nil {
 			return false, err
 		}
 
-		err = textEngineeringLabel.SetColor(255, 255, 255, textValue)
+		err = textEngineeringLabel.SetColor(255, 255, 0, textValue)
 		if err != nil {
 			return false, err
 		}
@@ -296,6 +297,31 @@ func (m *MenuScene) Draw(renderer *sdl.Renderer, scrW, scrH int, firstFrame bool
 		if err != nil {
 			return false, err
 		}
+
+		fpsText := "+inf FPS"
+		if !anythingMoved {
+			fpsText = "Sleeping..."
+		} else if dtNS > 0 {
+			fps := math.Round(float64(1_000_000_000) / float64(dtNS))
+			fpsText = fmt.Sprintf("%.0f FPS", fps)
+		}
+
+		var textFPS *ttf.Text
+		textFPS, err = fonts.GetText(FontClock, fpsText, false)
+		if err != nil {
+			return false, err
+		}
+
+		err = textFPS.SetColor(255, 255, 255, textValue)
+		if err != nil {
+			return false, err
+		}
+
+		err = textFPS.DrawRenderer(32, 64)
+		if err != nil {
+			return false, err
+		}
+
 	}
 
 	return anythingMoved, nil

@@ -1,23 +1,26 @@
-package executor
+package launcher
 
 type LaunchMode uint8
 
 const (
+	launchInvalid LaunchMode = iota
 	// LaunchDetached launches a new subprocess, then detaches it, allowing the main process to exit
 	// This makes tracking the child's lifecycle a bit complicated
 	// AtExit is noop in this case
-	LaunchDetached LaunchMode = iota
-
+	LaunchDetached
 	// LaunchWait Launches a new subprocess, and waits for it to exit AtExit
 	LaunchWait
 	// LaunchExec does not launch the process immediately, but instead launches it AtExit by exec-ing into it.
 	LaunchExec
+	// LaunchNone does not actually launch anything, it's a noop
+	LaunchNone
 )
 
 const (
 	LaunchDetachedStr = "detached"
 	LaunchWaitStr     = "wait"
 	LaunchExecStr     = "exec"
+	LaunchNoneStr     = "none"
 )
 
 func (m LaunchMode) String() string {
@@ -28,6 +31,8 @@ func (m LaunchMode) String() string {
 		return LaunchWaitStr
 	case LaunchExec:
 		return LaunchExecStr
+	case LaunchNone:
+		return LaunchNoneStr
 	}
 	return ""
 }
@@ -40,6 +45,8 @@ func ModeFromString(name string) (LaunchMode, bool) {
 		return LaunchWait, true
 	case LaunchExecStr:
 		return LaunchExec, true
+	case LaunchNoneStr:
+		return LaunchNone, true
 	}
 	return 0, false
 }

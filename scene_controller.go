@@ -13,7 +13,7 @@ type SceneControllerImpl struct {
 	currentScene Scene
 	nextScene    Scene
 
-	DesiredFPS uint64
+	DesiredFPS uint64 // TODO: Add support for VSYNC
 
 	exitRequested bool
 
@@ -25,6 +25,9 @@ type SceneControllerImpl struct {
 }
 
 func (s *SceneControllerImpl) desiredDeltaNS() uint64 {
+	if s.DesiredFPS == 0 {
+		return 0
+	}
 	return 1_000_000_000 / s.DesiredFPS //desired time b/w frames
 }
 
@@ -108,19 +111,21 @@ func (s *SceneControllerImpl) Run(renderer *sdl.Renderer, feedbackController Fee
 
 		s.handleInput(!keepDrawing)
 
-		// calculate if maybe we need to pad the frame time
 		delta = sdl.TicksNS() - loopStarted
-		desiredDeltaNS := s.desiredDeltaNS()
-		if delta < desiredDeltaNS {
-			sdl.DelayNS(desiredDeltaNS - delta)
+
+		if s.DesiredFPS > 0 { // FPS limiter
+			// calculate if maybe we need to pad the frame time
+			desiredDeltaNS := s.desiredDeltaNS()
+			if delta < desiredDeltaNS {
+				sdl.DelayNS(desiredDeltaNS - delta)
+			}
+			// update delta with the valid delta time
+			delta = sdl.TicksNS() - loopStarted
 		}
 
-		// update delta with the valid delta time
-		delta = sdl.TicksNS() - loopStarted
-
 		// if drawing is inhibited, we may have to fake the delta time
-		if !keepDrawing && delta > desiredDeltaNS*2 {
-			delta = desiredDeltaNS
+		if !keepDrawing && delta > 100_000_000 {
+			delta = 0
 		}
 
 		return nil
@@ -199,7 +204,7 @@ func (s *SceneControllerImpl) handleInput(blocking bool) {
 				s.proxyInput(IntentPrev)
 			case sdl.K_RIGHT:
 				s.proxyInput(IntentNext)
-			case sdl.K_RETURN, sdl.K_RETURN2, sdl.K_SPACE:
+			case sdl.K_RETURN, sdl.K_RETURN2, sdl.K_SPACE, sdl.K_KP_ENTER:
 				s.proxyInput(IntentSelect)
 			case sdl.K_F2:
 				s.proxyInput(IntentAdvanced)

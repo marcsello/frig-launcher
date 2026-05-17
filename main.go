@@ -19,7 +19,7 @@ import (
 	"github.com/marcsello/frig-launcher/asset_management/loader"
 	"github.com/marcsello/frig-launcher/asset_management/sound"
 	"github.com/marcsello/frig-launcher/config"
-	"github.com/marcsello/frig-launcher/executor"
+	"github.com/marcsello/frig-launcher/launcher"
 	"github.com/marcsello/frig-launcher/network"
 	"github.com/marcsello/frig-launcher/utils"
 	"gitlab.com/MikeTTh/env"
@@ -81,7 +81,7 @@ func (m MuteFeedbackController) OnSelect() {}
 
 func (m MuteFeedbackController) OnError() {}
 
-func sdlMain(showSplash, audioEnabled bool, windowW, windowH int32, desiredFPS uint64) error {
+func sdlMain(showSplash, audioEnabled bool, windowW, windowH int32, desiredFPS uint64, vsyncSetting int32) error {
 	defer binsdl.Load().Unload()
 	defer binimg.Load().Unload()
 	defer binttf.Load().Unload()
@@ -145,6 +145,12 @@ func sdlMain(showSplash, audioEnabled bool, windowW, windowH int32, desiredFPS u
 	defer renderer.Destroy()
 	defer window.Destroy()
 
+	err = renderer.SetVSync(vsyncSetting)
+	if err != nil {
+		log.Println("Failed to configure vsync")
+		return err
+	}
+
 	// Disable some unneeded events
 	sdl.SetEventEnabled(sdl.EVENT_TEXT_INPUT, false)
 	sdl.SetEventEnabled(sdl.EVENT_SENSOR_UPDATE, false)
@@ -197,6 +203,10 @@ func sdlMain(showSplash, audioEnabled bool, windowW, windowH int32, desiredFPS u
 	signalCh := make(chan os.Signal)
 	go func() {
 		sig := <-signalCh
+		if sig == nil {
+			return
+		}
+
 		log.Println("Signal received:", sig)
 		err := sdl.PushEvent(&sdl.Event{Type: sdl.EVENT_QUIT}) // the docs state: It is safe to call this function from any thread.
 		if err != nil {
@@ -205,9 +215,13 @@ func sdlMain(showSplash, audioEnabled bool, windowW, windowH int32, desiredFPS u
 	}()
 
 	signal.Notify(signalCh, syscall.SIGTERM, syscall.SIGINT)
+	defer func() {
+		signal.Reset(syscall.SIGTERM, syscall.SIGINT)
+		close(signalCh)
+	}()
 
 	// Setup clock ticker
-	go func() {
+	go func() { // TODO: exit when exiting the sdlMain
 		for {
 			time.Sleep(time.Now().Add(time.Minute).Truncate(time.Minute).Sub(time.Now()))
 			evt := sdl.UserEvent{
@@ -221,7 +235,7 @@ func sdlMain(showSplash, audioEnabled bool, windowW, windowH int32, desiredFPS u
 	}()
 
 	// Setup network checker
-	go func() {
+	go func() { // TODO: exit when exiting the sdlMain
 		firstLoop := true
 		for {
 			state := network.HasNetwork()
@@ -310,10 +324,12 @@ func main() {
 	var argAudio bool
 	var argWindow string
 	var desiredFPS uint64
+	var argVsync string
 	flag.BoolVar(&argShowSplash, "splash", true, "Show splash screen")
 	flag.BoolVar(&argAudio, "audio", true, "Enable audio")
-	flag.Uint64Var(&desiredFPS, "desiredFPS", 30, "Limit FPS to desired value")
+	flag.Uint64Var(&desiredFPS, "fps", 30, "Limit FPS to desired value (0 = unlimited)")
 	flag.StringVar(&argWindow, "window", "", "Use windowed mode with the specified resolution. Example -window=1024x768 otherwise will be fullscreen")
+	flag.StringVar(&argVsync, "vsync", "off", "VSYNC setting. can be 'adaptive', 'off' or N to sync every N frame")
 	flag.Parse()
 
 	var err error
@@ -335,10 +351,26 @@ func main() {
 		log.Println("WARNING: No applications defined!!!")
 	}
 
-	err = sdlMain(argShowSplash, argAudio, windowW, windowH, desiredFPS)
+	var launchMode launcher.LaunchMode
+
+	launchMode, ok := launcher.ModeFromString(config.Config.Launcher.Mode)
+	if !ok {
+		panic("invalid launch mode")
+	}
+
+	launcher.Init(launchMode)
+
+	var vsync int32
+	vsync, err = utils.ParseVSync(argVsync)
+	if err != nil {
+		log.Println("Invalid vsync value:", err)
+		panic(err)
+	}
+
+	err = sdlMain(argShowSplash, argAudio, windowW, windowH, desiredFPS, vsync)
 	if err != nil {
 		panic(err)
 	}
 	log.Println("SDL cleaned up")
-	executor.AtExit()
+	launcher.AtExit()
 }

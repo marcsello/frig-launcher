@@ -93,3 +93,58 @@ func TestParseResolution(t *testing.T) {
 		})
 	}
 }
+
+func TestParseVSync(t *testing.T) {
+	type args struct {
+		vsync string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    int32
+		wantErr bool
+	}{
+		{
+			name: "happy__adaptive",
+			args: args{vsync: "adaptive"},
+			want: -1,
+		},
+		{
+			name: "happy__off",
+			args: args{vsync: "off"},
+			want: 0,
+		},
+		{
+			name: "happy__set-1",
+			args: args{vsync: "1"},
+			want: 1,
+		},
+		{
+			name: "happy__set-100",
+			args: args{vsync: "100"},
+			want: 100,
+		},
+		{
+			name:    "error__set--100",
+			args:    args{vsync: "-100"},
+			wantErr: true,
+		},
+		{
+			name:    "error__set-0",
+			args:    args{vsync: "0"},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseVSync(tt.args.vsync)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseVSync() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("ParseVSync() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

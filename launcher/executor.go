@@ -1,10 +1,8 @@
-package executor
+package launcher
 
 import (
 	"log"
 	"os/exec"
-
-	"gitlab.com/MikeTTh/env"
 )
 
 var (
@@ -13,12 +11,11 @@ var (
 	execAtExit []string
 )
 
-func init() {
-	var ok bool
-	launchMode, ok = ModeFromString(env.String("FRIG_LAUNCH_MODE", LaunchDetachedStr))
-	if !ok {
-		panic("Invalid launch mode")
+func Init(mode LaunchMode) {
+	if launchMode != launchInvalid {
+		panic("already initialized")
 	}
+	launchMode = mode
 }
 
 func Launch(command []string) error {
@@ -39,6 +36,8 @@ func Launch(command []string) error {
 	case LaunchExec:
 		// register for launching at exit
 		execAtExit = command
+	case LaunchNone:
+		log.Println("not launching:", command)
 	}
 	return nil
 }

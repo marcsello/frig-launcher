@@ -16,7 +16,7 @@ type PreRenderedTextKey struct {
 var (
 	fonts = make(map[int]*ttf.Font)
 
-	texts = make(map[PreRenderedTextKey]*ttf.Text) // TODO: currently this WILL grow indefinitely!!!! (maybe not an issue in such a short lived application for now)
+	textCache = make(map[PreRenderedTextKey]*ttf.Text) // TODO: currently this WILL grow indefinitely!!!! (maybe not an issue in such a short lived application for now)
 
 	textEngine *ttf.TextEngine
 )
@@ -45,7 +45,7 @@ func GetFont(id int) (*ttf.Font, bool) {
 	return surface, ok // maybe crash?
 }
 
-func GetText(fontID int, text string) (*ttf.Text, error) {
+func GetText(fontID int, text string, cache bool) (*ttf.Text, error) {
 	font, ok := GetFont(fontID)
 	if !ok {
 		return nil, fmt.Errorf("invalid font id: %d", fontID)
@@ -56,25 +56,28 @@ func GetText(fontID int, text string) (*ttf.Text, error) {
 		Text:   text,
 	}
 
-	preRenderedText, ok := texts[key]
+	renderedText, ok := textCache[key]
 	if ok {
-		return preRenderedText, nil
+		return renderedText, nil
 	}
 
-	renderedText, err := textEngine.CreateText(font, text)
+	var err error
+	renderedText, err = textEngine.CreateText(font, text)
 	if err != nil {
 		return nil, err
 	}
 
-	texts[key] = renderedText
+	if cache {
+		textCache[key] = renderedText
+	}
 	return renderedText, nil
 }
 
 func Close() {
-	for _, preRenderedText := range texts {
+	for _, preRenderedText := range textCache {
 		preRenderedText.Destroy()
 	}
-	texts = nil // ensure the GC can clean it up
+	textCache = nil // ensure the GC can clean it up
 
 	for _, font := range fonts {
 		font.Close()

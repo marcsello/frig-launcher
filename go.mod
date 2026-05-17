@@ -4,6 +4,7 @@ go 1.26.2
 
 require (
 	github.com/Zyko0/go-sdl3 v0.1.1
+	github.com/creasty/defaults v1.8.0
 	github.com/jackpal/gateway v1.2.0
 	github.com/liamg/fontinfo v0.1.3
 	github.com/tatsushid/go-fastping v0.0.0-20160109021039-d7bb493dee3e
